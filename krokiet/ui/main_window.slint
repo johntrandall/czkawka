@@ -2,7 +2,7 @@ import { HorizontalBox, LineEdit, Palette, VerticalBox } from "std-widgets.slint
 import { FontSizes } from "fonts.slint";
 import { LeftSidePanel } from "left_side_panel.slint";
 import { MainList } from "main_lists.slint";
-import { ActiveTab, PopupRequest, ProgressToSend, SingleMainListModel } from "common.slint";
+import { ActiveTab, BottomPanelVisibility, PopupRequest, ProgressToSend, SingleMainListModel } from "common.slint";
 import { ActionButtons } from "action_buttons.slint";
 import { Progress } from "progress.slint";
 import { Settings } from "settings.slint";
@@ -209,9 +209,40 @@ export component MainWindow inherits Window {
             }
         }
 
+        // Draggable splitter handle for resizing the bottom panel.
+        // Captures press position + height on pointer-down, then derives
+        // the new height from total drag delta (avoids accumulator drift).
+        Rectangle {
+            vertical-stretch: 0.0;
+            height: 6px;
+            background: splitter_ta.has-hover || splitter_ta.pressed
+                ? Palette.accent-background
+                : Palette.alternate-background;
+            splitter_ta := TouchArea {
+                mouse-cursor: MouseCursor.row-resize;
+                property <length> press_y: 0;
+                property <length> press_height: 0;
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down) {
+                        self.press_y = self.mouse-y;
+                        self.press_height = Settings.bottom_panel_height;
+                    }
+                }
+                moved => {
+                    if (self.pressed) {
+                        Settings.bottom_panel_height = max(60px,
+                            min(root.height - 200px,
+                                self.press_height - (self.mouse-y - self.press_y)));
+                    }
+                }
+            }
+        }
+
         bottom_panel := BottomPanel {
             bottom_panel_visibility <=> action_buttons.bottom_panel_visibility;
             vertical-stretch: 0.0;
+            height: self.bottom_panel_visibility == BottomPanelVisibility.NotVisible
+                ? 0px : Settings.bottom_panel_height;
             folder_choose_requested(included_paths) => {
                 root.folder_choose_requested(included_paths)
             }
